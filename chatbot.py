@@ -173,7 +173,7 @@ class GPTLanguageModel(nn.Module):
     
 
 print('Loading model parameters...')
-with open('model-01.pkl', 'rb') as f:
+with open('model-02.pkl', 'rb') as f:
     model = pickle.load(f)
 print('Load successful')
 
