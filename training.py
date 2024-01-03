@@ -1,6 +1,3 @@
-#
-# https://drive.google.com/drive/folders/1IaD_SIIB-K3Sij_-JjWoPy_UrWqQRdjx
-#
 import argparse
 import mmap
 import pickle
@@ -10,46 +7,26 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-
-
-dev = 'mps' if torch.backends.mps.is_available()\
-    else 'cuda' if torch.backends.cuda.is_available() else 'cpu'
-print(f'You are using: {dev}')
-
-# args = parse_args()
-# print(f'The provided batch size is: {args.bs}')
-
-chars = ''
-with open('data/vocab.txt', 'r', encoding='utf-8') as f:
-    text = f.read()
-    chars = sorted(list(set(text)))
-
 batch_size = 64
-block_size = 128
-max_iters = 200
+block_size = 256
+max_iters = 5000
+eval_iters = 500
 learning_rate = 3e-4
-eval_iters = 50
 n_embd = 384
 n_head = 8
 n_layer = 8
 dropout = 0.2
 
+dev = 'mps' if torch.backends.mps.is_available()\
+    else 'cuda' if torch.backends.cuda.is_available() else 'cpu'
+print(f'You are using: {dev}')
 
-def parse_args():
-    parser = argparse.ArgumentParser(description='The is a demo')
-    # Here we add an argument to the parser, specifying the expected type, 
-    # a help message, etc.
-    parser.add_argument(
-        '-bs', 
-        type=int, 
-        required=True, 
-        help='Please provide -batch_size'
-    )
-
-    return parser.parse_args()
-
-
+chars = ''
+with open('data/vocab.txt', 'r', encoding='utf-8') as f:
+    text = f.read()
+    chars = sorted(list(set(text)))
 vocab_size = len(chars)
+
 
 string_to_int = { ch:i for i,ch in enumerate(chars) }
 int_to_string = { i:ch for i,ch in enumerate(chars) }
@@ -235,13 +212,14 @@ class GPTLanguageModel(nn.Module):
         return index
     
 
-
+print('Looking for model...')
 try:
-    print('Loading model parameters...')
-    with open('model-01.pkl', 'rb') as f:
+    with open('model-02.pkl', 'rb') as f:
+        print('loading...')
         model = pickle.load(f)
-    print('Load successful')
+    print(f'Load successful')
 except OSError:
+    print('Initialising new model')
     model = GPTLanguageModel(vocab_size, n_embd)
 
 m = model.to(dev)
@@ -250,22 +228,23 @@ m = model.to(dev)
 # create a PyTorch optimizer
 optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
-for _ in range(2):
-    for iter in range(max_iters):
-        if iter % eval_iters == 0:
-            losses = estimate_loss()
-            print(f"step: {iter}, train loss: {losses['train']:.3f}, val loss: {losses['val']:.3f}")
+# for _ in range(2):
+for iter in range(max_iters):
+    if iter % eval_iters == 0:
+        losses = estimate_loss()
+        print(f"step: {iter}, train loss: {losses['train']:.3f}, val loss: {losses['val']:.3f}")
 
-        # sample a batch of data
-        xb, yb = get_batch('train')
+    # sample a batch of data
+    xb, yb = get_batch('train')
 
-        # evaluate the loss
-        logits, loss = model.forward(xb, yb)
-        optimizer.zero_grad(set_to_none=True)
-        loss.backward()
-        optimizer.step()
-    print(loss.item())
+    # evaluate the loss
+    logits, loss = model.forward(xb, yb)
+    optimizer.zero_grad(set_to_none=True)
+    loss.backward()
+    optimizer.step()
+print('-- Training complete -- ')
+print(f"step: {iter}, train loss: {losses['train']:.3f}, val loss: {losses['val']:.3f}")
 
-with open('model-01.pkl', 'wb') as f:
+with open('model-02.pkl', 'wb') as f:
     pickle.dump(model, f)
 print('model saved')
